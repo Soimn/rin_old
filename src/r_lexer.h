@@ -146,6 +146,7 @@ typedef struct R_Token
 		R_u64 integer;
 		R_f32 float32;
 		R_f64 float64;
+		R_String string;
 	};
 } R_Token;
 
@@ -155,16 +156,18 @@ typedef struct R_Lexer
 	R_ZString current;
 	R_u32 line;
 	R_u32 line_start_offset;
+	R_Arena* string_arena;
 } R_Lexer;
 
 R_Lexer
-R_Lexer_Init(R_ZString string)
+R_Lexer_Init(R_ZString string, R_Arena* string_arena)
 {
 	return (R_Lexer){
 		.string            = string,
-		.current            = string,
+		.current           = string,
 		.line              = 0,
 		.line_start_offset = 0,
+		.string_arena      = string_arena,
 	};
 }
 
@@ -373,7 +376,8 @@ R_Lexer_NextToken(R_Lexer* lexer)
 					}
 					else
 					{
-						token.kind = R_Token_Identifier;
+						token.kind   = R_Token_Identifier;
+						token.string = identifier;
 
 						// TODO: perfect hash table
 						for (R_u32 i = 0; i < R_TOKEN_KEYWORD_COUNT; ++i)
@@ -569,13 +573,139 @@ R_Lexer_NextToken(R_Lexer* lexer)
 				}
 				else if (c == '"')
 				{
-				//R_Token_String
-					R_NOT_IMPLEMENTED;
+					R_String raw_string = {
+						.data = lexer->current,
+						.size = 0,
+					};
+
+					while (*lexer->current != '"')
+					{
+						if (*lexer->current == '\\' && *lexer->current != 0) lexer->current += 2;
+						else                                                 lexer->current += 1;
+					}
+
+					if (*lexer->current != '"')
+					{
+						//// ERROR: Unterminated string literal
+						R_NOT_IMPLEMENTED;
+					}
+					else
+					{
+						raw_string.size = (R_u32)(lexer->current - raw_string.data);
+						lexer->current += 1; // NOTE: Skip past the terminating quote
+
+						R_String string;
+						string.data = R_Arena_Push(lexer->string_arena, raw_string.size, R_ALIGNOF(R_u8));
+						string.size = 0;
+
+						for (R_umm i = 0; i < raw_string.size; )
+						{
+							if (raw_string.data[i] != '\\')
+							{
+								string.data[string.size] = raw_string.data[i];
+								string.size += 1;
+								i           += 1;
+							}
+							else
+							{
+								i += 1;
+								R_ASSERT(i < raw_string.size);
+
+								if (R_AlphaToLower(raw_string.data[i]) != 'u')
+								{
+									switch (raw_string.data[i])
+									{
+										case '\\': string.data[string.size++] = '\\'; break;
+										case 'a':  string.data[string.size++] = '\a'; break;
+										case 'b':  string.data[string.size++] = '\b'; break;
+										case 'f':  string.data[string.size++] = '\f'; break;
+										case 'n':  string.data[string.size++] = '\n'; break;
+										case 'r':  string.data[string.size++] = '\r'; break;
+										case 't':  string.data[string.size++] = '\t'; break;
+										case 'v':  string.data[string.size++] = '\v'; break;
+										case '\'': string.data[string.size++] = '\''; break;
+										case '\"': string.data[string.size++] = '\"'; break;
+										default:
+										{
+											//// ERROR: Illegal escape sequence
+											R_NOT_IMPLEMENTED;
+										} break;
+									}
+
+									i += 1; // NOTE: Skip symbol after backslash in escape sequence
+								}
+								else
+								{
+									R_umm expected_digit_count = (raw_string.data[i] == 'u' ? 4 : 6);
+									i += 1;
+
+									R_umm past_end = i + expected_digit_count;
+
+									if (past_end > raw_string.size)
+									{
+										//// ERROR: Missing digits of unicode escape sequence
+										R_NOT_IMPLEMENTED;
+									}
+									else
+									{
+										R_u32 codepoint = 0;
+										for (; i < past_end; ++i)
+										{
+											c = raw_string.data[i];
+
+											R_u8 digit;
+											if      (R_IsDigit(c))    digit = c & 0xF;
+											else if (R_IsHexAlpha(c)) digit = (c & 0xF) + 9;
+											else
+											{
+												//// ERROR: Illegal hexadecimal digit
+												R_NOT_IMPLEMENTED;
+											}
+
+											codepoint <<= 4;
+											codepoint  |= digit;
+										}
+
+										if (codepoint <= 0x7F)
+										{
+											string.data[string.size++] = (R_u8)codepoint;
+										}
+										else if (codepoint <= 0x7FF)
+										{
+											string.data[string.size++] = 0xC0 | (R_u8)(codepoint >> 6);
+											string.data[string.size++] = 0x80 | (R_u8)(codepoint & 0x3F);
+										}
+										else if (codepoint <= 0xFFFF)
+										{
+											string.data[string.size++] = 0xE0 | (R_u8)(codepoint >> 12);
+											string.data[string.size++] = 0x80 | (R_u8)((codepoint >> 6) & 0x3F);
+											string.data[string.size++] = 0x80 | (R_u8)(codepoint & 0x3F);
+										}
+										else if (codepoint <= 0x10FFFF)
+										{
+											string.data[string.size++] = 0xF0 | (R_u8)(codepoint >> 18);
+											string.data[string.size++] = 0x80 | (R_u8)((codepoint >> 12) & 0x3F);
+											string.data[string.size++] = 0x80 | (R_u8)((codepoint >>  6) & 0x3F);
+											string.data[string.size++] = 0x80 | (R_u8)(codepoint & 0x3F);
+										}
+										else
+										{
+											//// ERROR: UTF8 codepoint is out of range
+											R_NOT_IMPLEMENTED;
+										}
+									}
+								}
+							}
+						}
+
+						token.kind   = R_Token_String;
+						token.string = string;
+					}
 				}
 				else
 				{
 					//// ERROR: Invalid token
-					R_NOT_IMPLEMENTED;
+					token.kind = R_Token_Invalid;
 				}
 			} break;
 		}

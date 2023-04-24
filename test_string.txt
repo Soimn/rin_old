@@ -1,0 +1,6 @@
+"abcdefghijklmnoq""a"
+"\""
+"\a"
+"\u0000"
+"\U00000A\U000000"
+"asdkldjfglk\n\aasdklø\uBADFasdølkdfg\U0ADF0D"

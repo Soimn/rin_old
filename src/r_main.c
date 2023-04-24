@@ -1,3 +1,5 @@
+#include <windows.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <intrin.h>
@@ -51,14 +53,48 @@ typedef R_u8* R_ZString;
 #define R_ASSERT(E) ((E) ? 1 : *(volatile int*)0)
 #define R_NOT_IMPLEMENTED R_ASSERT(!"NOT_IMPLEMENTED")
 
+#define R_KB(n) (1024ULL * (n))
+#define R_MB(n) (1024ULL * R_KB(n))
+#define R_GB(n) (1024ULL * R_MB(n))
+
+#define R_ALIGNOF(T) ((R_u8)&((struct { char c; T t; }*)0)->t)
+
+void* R_System_ReserveMemory(R_u64 size);
+void R_System_CommitMemory(void* base, R_u64 size);
+R_u32 R_System_PageSize();
+
 #include "r_memory.h"
 #include "r_string.h"
 #include "r_lexer.h"
 
+void*
+R_System_ReserveMemory(R_u64 size)
+{
+	void* result = VirtualAlloc(0, size, MEM_RESERVE, PAGE_READWRITE);
+	R_ASSERT(result != 0); // TODO:
+	return result;
+}
+
+void
+R_System_CommitMemory(void* base, R_u64 size)
+{
+	void* result = VirtualAlloc(base, size, MEM_COMMIT, PAGE_READWRITE);
+	R_ASSERT(result != 0); // TODO:
+}
+
+R_u32
+R_System_PageSize()
+{
+	SYSTEM_INFO sys_info;
+	GetSystemInfo(&sys_info);
+
+	return sys_info.dwPageSize;
+}
+
 int
 main(int argc, char** argv)
 {
-	FILE* test_file = fopen("test_num.txt", "rb");
+	FILE* test_file = fopen("test_c.txt", "rb");
 	fseek(test_file, 0, SEEK_END);
 	int test_file_size = ftell(test_file);
 	rewind(test_file);
@@ -68,7 +104,9 @@ main(int argc, char** argv)
 
 	fread(test_file_data, test_file_size, 1, test_file);
 
-	R_Lexer lexer = R_Lexer_Init(test_file_data);
+	R_Arena* string_arena = R_Arena_Create();
+
+	R_Lexer lexer = R_Lexer_Init(test_file_data, string_arena);
 
 	for (;;)
 	{
@@ -83,6 +121,12 @@ main(int argc, char** argv)
 			else if (token.kind == R_Token_Float64)       printf("Float: %.30F\n", token.float64);
 			else if (token.kind == R_Token_HexFloat32)    printf("HexFloat32: %.30f\n", token.float32);
 			else if (token.kind == R_Token_HexFloat64)    printf("HexFloat64: %.30F\n", token.float64);
+			else if (token.kind == R_Token_Identifier)    printf("Identifier: %.*s\n", token.string.size, token.string.data);
+			else if (token.kind == R_Token_String)        printf("String: \"%.*s\"\n", token.string.size, token.string.data);
+			else if (token.kind >= R_Token__FirstKeyword && token.kind <= R_Token__LastKeyword)
+			{
+				printf("Keyword: %.*s\n", token.string.size, token.string.data);
+			}
 		}
 	}
 
