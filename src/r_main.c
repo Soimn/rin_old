@@ -66,6 +66,8 @@ R_u32 R_System_PageSize();
 #include "r_memory.h"
 #include "r_string.h"
 #include "r_lexer.h"
+#include "r_ast.h"
+#include "r_parser.h"
 
 void*
 R_System_ReserveMemory(R_u64 size)
@@ -94,7 +96,7 @@ R_System_PageSize()
 int
 main(int argc, char** argv)
 {
-	FILE* test_file = fopen("test_c.txt", "rb");
+	FILE* test_file = fopen("test_num.txt", "rb");
 	fseek(test_file, 0, SEEK_END);
 	int test_file_size = ftell(test_file);
 	rewind(test_file);
@@ -118,9 +120,9 @@ main(int argc, char** argv)
 			if      (token.kind == R_Token_Integer)       printf("Integer: %llu\n", token.integer);
 			else if (token.kind == R_Token_BinaryInteger) printf("BinInt: 0x%llX\n", token.integer);
 			else if (token.kind == R_Token_HexInteger)    printf("HexInt: 0x%llX\n", token.integer);
-			else if (token.kind == R_Token_Float64)       printf("Float: %.30F\n", token.float64);
-			else if (token.kind == R_Token_HexFloat32)    printf("HexFloat32: %.30f\n", token.float32);
-			else if (token.kind == R_Token_HexFloat64)    printf("HexFloat64: %.30F\n", token.float64);
+			else if (token.kind == R_Token_Float)         printf("Float: %.30F\n", token.floating);
+			else if (token.kind == R_Token_HexFloat32)    printf("HexFloat32: %.30f\n", token.floating);
+			else if (token.kind == R_Token_HexFloat64)    printf("HexFloat64: %.30F\n", token.floating);
 			else if (token.kind == R_Token_Identifier)    printf("Identifier: %.*s\n", token.string.size, token.string.data);
 			else if (token.kind == R_Token_String)        printf("String: \"%.*s\"\n", token.string.size, token.string.data);
 			else if (token.kind >= R_Token__FirstKeyword && token.kind <= R_Token__LastKeyword)

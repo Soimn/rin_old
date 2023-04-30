@@ -20,7 +20,7 @@ typedef enum R_Token_Kind
 	R_Token__LastInteger                = R_Token_HexInteger,
 
 	R_Token__FirstFloat,
-	R_Token_Float64                     = R_Token__FirstFloat,
+	R_Token_Float                       = R_Token__FirstFloat,
 	R_Token_HexFloat32,
 	R_Token_HexFloat64,
 	R_Token__LastFloat                  = R_Token_HexFloat64,
@@ -40,6 +40,7 @@ typedef enum R_Token_Kind
 	R_Token_Bang,
 	R_Token_Arrow,
 	R_Token_Blank,
+	R_Token_Qmark,
 
 	R_Token__FirstKeyword,
 	R_Token_If                          = R_Token__FirstKeyword,
@@ -50,7 +51,9 @@ typedef enum R_Token_Kind
 	R_Token_Return,
 	R_Token_Proc,
 	R_Token_Struct,
-	R_Token__LastKeyword                = R_Token_Struct,
+	R_Token_True,
+	R_Token_False,
+	R_Token__LastKeyword                = R_Token_False,
 
 	
 	R_Token__FirstAssignment            = R_TOKEN_BLOCK(5),
@@ -124,16 +127,18 @@ typedef enum R_Token_Kind
 #define R_TOKEN_KEYWORD_COUNT ((R_Token__LastKeyword - R_Token__FirstKeyword) + 1)
 
 // NOTE: MSVC is stupid
-#define R_TOKEN_KEYWORDSTRING(str) { .data = (R_u8*)(str), .size = sizeof(str) - 1 }
+#define R_TOKEN_KEYWORDSTRING(k, str) [(k) - R_Token__FirstKeyword] = { .data = (R_u8*)(str), .size = sizeof(str) - 1 }
 static R_String R_Token_KeywordStrings[R_TOKEN_KEYWORD_COUNT] = {
-	[0] = R_TOKEN_KEYWORDSTRING("if"),
-	[1] = R_TOKEN_KEYWORDSTRING("else"),
-	[2] = R_TOKEN_KEYWORDSTRING("while"),
-	[3] = R_TOKEN_KEYWORDSTRING("break"),
-	[4] = R_TOKEN_KEYWORDSTRING("continue"),
-	[5] = R_TOKEN_KEYWORDSTRING("return"),
-	[6] = R_TOKEN_KEYWORDSTRING("proc"),
-	[7] = R_TOKEN_KEYWORDSTRING("struct"),
+	R_TOKEN_KEYWORDSTRING(R_Token_If,       "if"),
+	R_TOKEN_KEYWORDSTRING(R_Token_Else,     "else"),
+	R_TOKEN_KEYWORDSTRING(R_Token_While,    "while"),
+	R_TOKEN_KEYWORDSTRING(R_Token_Break,    "break"),
+	R_TOKEN_KEYWORDSTRING(R_Token_Continue, "continue"),
+	R_TOKEN_KEYWORDSTRING(R_Token_Return,   "return"),
+	R_TOKEN_KEYWORDSTRING(R_Token_Proc,     "proc"),
+	R_TOKEN_KEYWORDSTRING(R_Token_Struct,   "struct"),
+	R_TOKEN_KEYWORDSTRING(R_Token_True,     "true"),
+	R_TOKEN_KEYWORDSTRING(R_Token_False,    "false"),
 };
 #undef R_TOKEN_KEYWORDSTRING
 
@@ -144,8 +149,7 @@ typedef struct R_Token
 	union
 	{
 		R_u64 integer;
-		R_f32 float32;
-		R_f64 float64;
+		R_f64 floating;
 		R_String string;
 	};
 } R_Token;
@@ -236,6 +240,7 @@ R_Lexer_NextToken(R_Lexer* lexer)
 			case ',': token.kind = R_Token_Comma;        break;
 			case '^': token.kind = R_Token_Hat;          break;
 			case '.': token.kind = R_Token_Period;       break;
+			case '?': token.kind = R_Token_Qmark;        break;
 
 #define R_TOKEN_OP_OR_OPEQ(c, op, op_eq) \
 			case c:                            \
@@ -507,15 +512,15 @@ R_Lexer_NextToken(R_Lexer* lexer)
 								}
 							}
 
-							R_f64 float64 = (R_f64)integral_part + fractional_adj*(R_f64)fractional_part;
+							R_f64 floating = (R_f64)integral_part + fractional_adj*(R_f64)fractional_part;
 
 							for (R_umm i = 0; i < exponent_part; ++i)
 							{
-								float64 *= (exponent_is_neg ? 0.1 : 10);
+								floating *= (exponent_is_neg ? 0.1 : 10);
 							}
 
-							token.kind    = R_Token_Float64;
-							token.float64 = float64;
+							token.kind     = R_Token_Float;
+							token.floating = floating;
 						}
 					}
 					else if (base == 16 && is_float)
@@ -530,8 +535,8 @@ R_Lexer_NextToken(R_Lexer* lexer)
 
 							typepun.bits = value;
 
-							token.kind    = R_Token_HexFloat64;
-							token.float64 = typepun.f;
+							token.kind     = R_Token_HexFloat64;
+							token.floating = typepun.f;
 						}
 						else if (digit_count == 8)
 						{
@@ -543,8 +548,8 @@ R_Lexer_NextToken(R_Lexer* lexer)
 
 							typepun.bits = (R_u32)value;
 
-							token.kind    = R_Token_HexFloat32;
-							token.float32 = typepun.f;
+							token.kind     = R_Token_HexFloat32;
+							token.floating = (R_f64)typepun.f;
 						}
 						else
 						{
@@ -705,7 +710,7 @@ R_Lexer_NextToken(R_Lexer* lexer)
 				else
 				{
 					//// ERROR: Invalid token
-					token.kind = R_Token_Invalid;
+					R_NOT_IMPLEMENTED;
 				}
 			} break;
 		}
