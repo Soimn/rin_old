@@ -13,7 +13,7 @@ typedef enum R_AST_Kind
 
 	R_AST__FirstExpression,
 
-	R_AST__FirstPrimaryExpression,
+	R_AST__FirstPrimaryExpression        = R_AST__FirstExpression,
 	R_AST_Identifier                     = R_AST__FirstPrimaryExpression,
 	R_AST_String,
 	R_AST_Int,
@@ -152,6 +152,36 @@ typedef struct R_AST_Header
 	R_AST* next;
 } R_AST_Header;
 
+typedef struct R_Identifier_Expression
+{
+	struct R_Expression_Header;
+	R_String string;
+} R_Identifier_Expression;
+
+typedef struct R_String_Expression
+{
+	struct R_Expression_Header;
+	R_String string;
+} R_String_Expression;
+
+typedef struct R_Int_Expression
+{
+	struct R_Expression_Header;
+	R_u64 value;
+} R_Int_Expression;
+
+typedef struct R_Float_Expression
+{
+	struct R_Expression_Header;
+	R_f64 value;
+} R_Float_Expression;
+
+typedef struct R_Bool_Expression
+{
+	struct R_Expression_Header;
+	R_bool value;
+} R_Bool_Expression;
+
 typedef struct R_Proc_Lit_Expression
 {
 	struct R_Expression_Header;
@@ -242,11 +272,11 @@ typedef struct R_Expression
 	{
 		struct R_Expression_Header;
 
-		R_String identifier;
-		R_String string;
-		R_u64 integer;
-		R_f64 floating;
-		R_bool boolean;
+		R_Identifier_Expression ident_expr;
+		R_String_Expression string_expr;
+		R_Int_Expression int_expr;
+		R_Float_Expression float_expr;
+		R_Bool_Expression bool_expr;
 		R_Proc_Lit_Expression proc_lit_expr;
 		R_Proc_Type_Expression proc_type_expr;
 		R_Struct_Type_Expression struct_type_expr;

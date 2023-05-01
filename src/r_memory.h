@@ -52,6 +52,12 @@ R_Arena_Create()
 	return arena;
 }
 
+void
+R_Arena_Destroy(R_Arena* arena)
+{
+	R_System_ReleaseMemory(arena);
+}
+
 void*
 R_Arena_Push(R_Arena* arena, R_umm size, R_u8 alignment)
 {

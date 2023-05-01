@@ -110,30 +110,40 @@ R_Parser_ParsePrimaryExpression(R_Parser* state, R_Expression** expr)
 
 	if (token.kind == R_Token_Identifier)
 	{
-		*expr = R_Parser_PushNode(state, R_AST_String);
-		(*expr)->identifier = token.string;
+		*expr = R_Parser_PushNode(state, R_AST_Identifier);
+		(*expr)->ident_expr.string = token.string;
+
+		R_NextToken();
 	}
 	else if (token.kind == R_Token_String)
 	{
 		*expr = R_Parser_PushNode(state, R_AST_String);
-		(*expr)->string = token.string;
+		(*expr)->string_expr.string = token.string;
+
+		R_NextToken();
 	}
 	else if (token.kind >= R_Token__FirstInteger && token.kind <= R_Token__LastInteger)
 	{
 		*expr = R_Parser_PushNode(state, R_AST_Int);
-		(*expr)->integer = token.integer;
+		(*expr)->int_expr.value = token.integer;
+
+		R_NextToken();
 	}
 	else if (token.kind >= R_Token__FirstFloat && token.kind <= R_Token__LastFloat)
 	{
 		*expr = R_Parser_PushNode(state, R_AST_Float);
-		(*expr)->floating = token.floating;
+		(*expr)->float_expr.value = token.floating;
+
+		R_NextToken();
 	}
 	else if (token.kind == R_Token_True || token.kind == R_Token_False)
 	{
 		R_bool boolean = (token.kind = R_Token_True);
 
 		*expr = R_Parser_PushNode(state, R_AST_Bool);
-		(*expr)->boolean = boolean;
+		(*expr)->bool_expr.value = boolean;
+
+		R_NextToken();
 	}
 	else if (token.kind == R_Token_Proc)
 	{
@@ -461,7 +471,7 @@ R_Parser_ParseTypePrefixExpression(R_Parser* state, R_Expression** expr)
 				}
 			}
 		}
-		else return !R_Parser_ParsePostfixExpression(state, expr);
+		else return R_Parser_ParsePostfixExpression(state, expr);
 	}
 }
 
@@ -482,7 +492,7 @@ R_Parser_ParseUnaryExpression(R_Parser* state, R_Expression** expr)
 			case R_Token_And:   op = R_AST_Reference; break;
 		}
 
-		if (op == R_AST_None) return !R_Parser_ParseTypePrefixExpression(state, expr);
+		if (op == R_AST_None) return R_Parser_ParseTypePrefixExpression(state, expr);
 		else
 		{
 			*expr = R_Parser_PushNode(state, op);
@@ -494,14 +504,15 @@ R_Parser_ParseUnaryExpression(R_Parser* state, R_Expression** expr)
 R_bool
 R_Parser_ParseBinaryExpression(R_Parser* state, R_Expression** expr)
 {
-	if (R_Parser_ParseUnaryExpression(state, expr)) return R_false;
+	if (!R_Parser_ParseUnaryExpression(state, expr)) return R_false;
 	else
 	{
 		for (;;)
 		{
 			R_Token token = R_GetToken();
 
-			if (token.kind >= R_Token__FirstBinary && token.kind <= R_Token__LastBinary)
+			if (token.kind < R_Token__FirstBinary	|| token.kind > R_Token__LastBinary) break;
+			else
 			{
 				R_AST_Kind op = (R_AST_Kind)token.kind;
 				R_NextToken();
