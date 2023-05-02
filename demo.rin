@@ -1,0 +1,50 @@
+main :: proc
+{
+	// comments
+	/*
+	  Block comments
+
+		/* That nest */
+
+		/*
+		 /*
+			multiple levels
+		 */
+		*/
+	 */
+
+	 variable : type = value;
+	 variable := value;
+	 constant : type : value;
+
+	 fib := proc(n: int) -> int
+	 {
+		 assert(n >= 0);
+		 if (n < 1) return 1;
+		 else       return fib(n-2) + fib(n-1);
+	 };
+
+	 Nested_Constant_Proc :: proc -> int
+	 {
+		 return 2 * (4 + 8 - 12 + -9) >> 4;
+	 }
+
+	 Struct :: struct
+	 {
+		 A :: 0 + 1;
+		 a : int;
+		 b := 0;
+	 }
+}
+
+AnotherProc :: proc(n0: int, n2, n3, n4: float = 3.14) -> (number: int, succeded: bool)
+{
+	return 0, false;
+}
+
+A :: proc(n: int, f: float, i, d, e: int = B()) -> (int, float)
+{
+	//...
+}
+
+p: proc(int, float, int) -> int = &A;

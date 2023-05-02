@@ -10,6 +10,7 @@ typedef enum R_AST_Kind
 
 	R_AST_Argument,
 	R_AST_Parameter,
+	R_AST_ReturnType,
 
 	R_AST__FirstExpression,
 
@@ -128,6 +129,15 @@ typedef struct R_Parameter
 	R_Expression* value;
 } R_Parameter;
 
+typedef struct R_Return_Type
+{
+	R_AST_Kind kind;
+	struct R_Return_Type* next;
+
+	R_Expression* names;
+	R_Expression* type;
+} R_Return_Type;
+
 typedef struct R_Expression_Header
 {
 	R_AST_Kind kind;
@@ -186,7 +196,7 @@ typedef struct R_Proc_Lit_Expression
 {
 	struct R_Expression_Header;
 	R_Parameter* params;
-	R_Expression* return_type;
+	R_Return_Type* return_types;
 	R_Statement* body;
 } R_Proc_Lit_Expression;
 
@@ -194,7 +204,7 @@ typedef struct R_Proc_Type_Expression
 {
 	struct R_Expression_Header;
 	R_Parameter* params;
-	R_Expression* return_type;
+	R_Return_Type* return_types;
 } R_Proc_Type_Expression;
 
 typedef struct R_Struct_Type_Expression
@@ -385,6 +395,7 @@ typedef struct R_AST
 
 		R_Argument argument;
 		R_Parameter parameter;
+		R_Return_Type return_type;
 		R_Expression expression;
 		R_Declaration declaration;
 		R_Statement statement;

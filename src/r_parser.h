@@ -145,11 +145,11 @@ R_Parser_ParsePrimaryExpression(R_Parser* state, R_Expression** expr)
 
 		R_NextToken();
 	}
-	else if (token.kind == R_Token_Proc)
+	else if (R_EatToken(R_Token_Proc))
 	{
-		R_Parameter* params       = 0;
-		R_Expression* return_type = 0;
-		R_Statement* body         = 0;
+		R_Parameter* params         = 0;
+		R_Return_Type* return_types = 0;
+		R_Statement* body           = 0;
 
 		if (R_EatToken(R_Token_OpenParen))
 		{
@@ -231,17 +231,96 @@ R_Parser_ParsePrimaryExpression(R_Parser* state, R_Expression** expr)
 
 		if (R_EatToken(R_Token_Arrow))
 		{
-			if (!R_Parser_ParseExpression(state, &return_type))
+			if (!R_EatToken(R_Token_OpenParen))
 			{
-				return R_false;
+				R_Expression* type;
+				if (!R_Parser_ParseExpression(state, &type)) return R_false;
+				else
+				{
+					return_types = R_Parser_PushNode(state, R_AST_ReturnType);
+					return_types->names = 0;
+					return_types->type  = type;
+				}
+			}
+			else
+			{
+				R_Expression* expressions;
+				if (!R_Parser_ParseExpressionList(state, &expressions)) return R_false;
+				else
+				{
+					if (!R_IsToken(R_Token_Colon) && !R_IsToken(R_Token_Equals))
+					{
+						R_Return_Type** next_ret = &return_types;
+						for (R_Expression* scan = expressions; scan != 0; )
+						{
+							R_Expression* next_scan = scan->next;
+							R_Expression* type      = scan;
+							scan       = next_scan;
+							type->next = 0;
+
+							*next_ret = R_Parser_PushNode(state, R_AST_ReturnType);
+							(*next_ret)->names = 0;
+							(*next_ret)->type = type;
+
+							next_ret = &(*next_ret)->next;
+						}
+					}
+					else
+					{
+						R_Expression* names = expressions;
+						R_Return_Type** next_ret = &return_types;
+						for (;;)
+						{
+							R_Expression* type;
+							if (!R_EatToken(R_Token_Colon))
+							{
+								//// ERROR: Missing colon separating name and type of return type
+								R_NOT_IMPLEMENTED;
+								return R_false;
+							}
+							else
+							{
+								if      (!R_Parser_ParseExpression(state, &type)) return R_false;
+								else if (R_IsToken(R_Token_Equals))
+								{
+									//// ERROR: Return types cannot have values
+									R_NOT_IMPLEMENTED;
+									return R_false;
+								}
+								else
+								{
+									*next_ret = R_Parser_PushNode(state, R_AST_ReturnType);
+									(*next_ret)->names = names;
+									(*next_ret)->type  = type;
+
+									next_ret = &(*next_ret)->next;
+
+									if (!R_EatToken(R_Token_Comma)) break;
+									else
+									{
+										if (!R_Parser_ParseExpressionList(state, &names)) return R_false;
+										else                                              continue;
+									}
+								}
+							}
+						}
+					}
+				}
+
+				if (!R_EatToken(R_Token_CloseParen))
+				{
+					//// ERROR: Missing closing parenthesis after return type list
+					R_NOT_IMPLEMENTED;
+					return R_false;
+				}
 			}
 		}
 
 		if (!R_IsToken(R_Token_OpenBrace))
 		{
 			*expr = R_Parser_PushNode(state, R_AST_ProcType);
-			(*expr)->proc_type_expr.params      = params;
-			(*expr)->proc_type_expr.return_type = return_type;
+			(*expr)->proc_type_expr.params       = params;
+			(*expr)->proc_type_expr.return_types = return_types;
 		}
 		else
 		{
@@ -249,9 +328,9 @@ R_Parser_ParsePrimaryExpression(R_Parser* state, R_Expression** expr)
 			else
 			{
 				*expr = R_Parser_PushNode(state, R_AST_ProcLit);
-				(*expr)->proc_lit_expr.params      = params;
-				(*expr)->proc_lit_expr.return_type = return_type;
-				(*expr)->proc_lit_expr.body        = body;
+				(*expr)->proc_lit_expr.params       = params;
+				(*expr)->proc_lit_expr.return_types = return_types;
+				(*expr)->proc_lit_expr.body         = body;
 			}
 		}
 	}
@@ -306,7 +385,13 @@ R_Parser_ParsePrimaryExpression(R_Parser* state, R_Expression** expr)
 	else if (R_EatToken(R_Token_OpenParen))
 	{
 		R_Expression* inner_expr;
-		if (!R_Parser_ParseExpression(state, &inner_expr)) return R_false;
+		if      (!R_Parser_ParseExpression(state, &inner_expr)) return R_false;
+		else if (!R_EatToken(R_Token_CloseParen))
+		{
+			//// ERROR: Missing closing parenthesis after compound expression
+			R_NOT_IMPLEMENTED;
+			return R_false;
+		}
 		else
 		{
 			*expr = R_Parser_PushNode(state, R_AST_Compound);
@@ -408,8 +493,8 @@ R_Parser_ParsePostfixExpression(R_Parser* state, R_Expression** expr)
 			else if (R_EatToken(R_Token_OpenParen))
 			{
 				R_Expression* proc = *expr;
-				R_Argument* args;
-				if (!R_Parser_ParseArgumentList(state, &args)) return R_false;
+				R_Argument* args   = 0;
+				if (!R_IsToken(R_Token_CloseParen) && !R_Parser_ParseArgumentList(state, &args)) return R_false;
 				else
 				{
 					if (!R_EatToken(R_Token_CloseParen))
@@ -495,6 +580,8 @@ R_Parser_ParseUnaryExpression(R_Parser* state, R_Expression** expr)
 		if (op == R_AST_None) return R_Parser_ParseTypePrefixExpression(state, expr);
 		else
 		{
+			R_NextToken();
+
 			*expr = R_Parser_PushNode(state, op);
 			expr = &(*expr)->unary_expr.operand;
 		}
@@ -511,7 +598,7 @@ R_Parser_ParseBinaryExpression(R_Parser* state, R_Expression** expr)
 		{
 			R_Token token = R_GetToken();
 
-			if (token.kind < R_Token__FirstBinary	|| token.kind > R_Token__LastBinary) break;
+			if (token.kind < R_Token__FirstBinary || token.kind > R_Token__LastBinary) break;
 			else
 			{
 				R_AST_Kind op = (R_AST_Kind)token.kind;
@@ -521,7 +608,7 @@ R_Parser_ParseBinaryExpression(R_Parser* state, R_Expression** expr)
 
 				R_Expression** slot = expr;
 				R_Expression* right;
-				if (R_Parser_ParseUnaryExpression(state, &right)) return R_false;
+				if (!R_Parser_ParseUnaryExpression(state, &right)) return R_false;
 				else
 				{
 					for (;;)
@@ -821,7 +908,13 @@ R_Parser_ParseStatement(R_Parser* state, R_Statement** stmnt)
 					R_AST_Kind op = (token.kind == R_Token_Equals ? R_AST_None : R_TOKEN_OP_OF_BINARY_OP_ASSIGNMENT(token.kind));
 					R_NextToken();
 
-					if (!R_Parser_ParseExpressionList(state, &rhs)) return R_false;
+					if      (!R_Parser_ParseExpressionList(state, &rhs)) return R_false;
+					else if (!R_EatToken(R_Token_Semicolon))
+					{
+						//// ERROR: Missing semicolon after assignment statement
+						R_NOT_IMPLEMENTED;
+						return R_false;
+					}
 					else
 					{
 						*stmnt = R_Parser_PushNode(state, R_AST_Assignment);
@@ -838,10 +931,13 @@ R_Parser_ParseStatement(R_Parser* state, R_Statement** stmnt)
 						R_NOT_IMPLEMENTED;
 						return R_false;
 					}
-					else
+					else if (!R_EatToken(R_Token_Semicolon))
 					{
-						*stmnt = (R_Statement*)expressions;
+						//// ERROR: Missing semicolon after statement
+						R_NOT_IMPLEMENTED;
+						return R_false;
 					}
+					else *stmnt = (R_Statement*)expressions;
 				}
 			}
 		}

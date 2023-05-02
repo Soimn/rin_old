@@ -106,10 +106,25 @@ main(int argc, char** argv)
 	R_Arena* ast_arena    = R_Arena_Create();
 	R_Arena* string_arena = R_Arena_Create();
 
+	FILE* file = fopen("demo.rin", "rb");
+	
+	fseek(file, 0, SEEK_END);
+	int file_size = ftell(file);
+	rewind(file);
+
+	R_u8* file_data = R_Arena_Push(string_arena, file_size, R_ALIGNOF(R_u8));
+
+	fread(file_data, 1, file_size, file);
+	fclose(file);
+
 	R_Declaration* decls = 0;
-	R_bool succeeded = R_Parser_ParseFile("A : string : \"B\";\n", ast_arena, string_arena, &decls);
+	R_bool succeeded = R_Parser_ParseFile(file_data, ast_arena, string_arena, &decls);
 
 	printf("succeeded: %s\n", (succeeded ? "true" : "false"));
 
 	return 0;
 }
+
+// TODO:
+// - identifiers are strings using the file memory for backing, consider hash consing (ties into multi threading)
+// - should parsing be multi threaded? How should e.g. hash consed strings be unified?
