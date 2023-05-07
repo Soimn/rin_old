@@ -316,7 +316,7 @@ R_Parser_ParsePrimaryExpression(R_Parser* state, R_Expression** expr)
 			}
 		}
 
-		if (!R_IsToken(R_Token_OpenBrace))
+		if (!R_IsToken(R_Token_OpenBrace) && !R_IsToken(R_Token_TripleMinus))
 		{
 			*expr = R_Parser_PushNode(state, R_AST_ProcType);
 			(*expr)->proc_type_expr.params       = params;
@@ -324,7 +324,7 @@ R_Parser_ParsePrimaryExpression(R_Parser* state, R_Expression** expr)
 		}
 		else
 		{
-			if (!R_Parser_ParseStatement(state, &body)) return R_false;
+			if (!R_EatToken(R_Token_TripleMinus) && !R_Parser_ParseStatement(state, &body)) return R_false;
 			else
 			{
 				*expr = R_Parser_PushNode(state, R_AST_ProcLit);
@@ -846,7 +846,12 @@ R_Parser_ParseStatement(R_Parser* state, R_Statement** stmnt)
 				if (R_EatToken(R_Token_Colon))
 				{
 					R_Expression* values;
-					if (!R_Parser_ParseExpressionList(state, &values)) return R_false;
+					if (R_IsToken(R_Token_TripleMinus))
+					{
+						//// ERROR: Constant declarations must have a value
+						R_NOT_IMPLEMENTED;
+					}
+					else if (!R_Parser_ParseExpressionList(state, &values)) return R_false;
 					else
 					{
 						if (values->next == 0 && (values->kind == R_AST_ProcLit || values->kind == R_AST_StructType))
@@ -876,11 +881,13 @@ R_Parser_ParseStatement(R_Parser* state, R_Statement** stmnt)
 				}
 				else
 				{
-					R_Expression* values = 0;
+					R_Expression* values    = 0;
+					R_bool is_uninitialized = R_false;
 
 					if (R_EatToken(R_Token_Equals))
 					{
-						if (!R_Parser_ParseExpressionList(state, &values)) return R_false;
+						if      (R_EatToken(R_Token_TripleMinus))               is_uninitialized = R_true;
+						else if (!R_Parser_ParseExpressionList(state, &values)) return R_false;
 					}
 
 					if (!R_EatToken(R_Token_Semicolon))
@@ -892,9 +899,10 @@ R_Parser_ParseStatement(R_Parser* state, R_Statement** stmnt)
 					else
 					{
 						*stmnt = R_Parser_PushNode(state, R_AST_Variable);
-						(*stmnt)->declaration.var_decl.names  = names;
-						(*stmnt)->declaration.var_decl.type   = type;
-						(*stmnt)->declaration.var_decl.values = values;
+						(*stmnt)->declaration.var_decl.names            = names;
+						(*stmnt)->declaration.var_decl.type             = type;
+						(*stmnt)->declaration.var_decl.values           = values;
+						(*stmnt)->declaration.var_decl.is_uninitialized = is_uninitialized;
 					}
 				}
 			}

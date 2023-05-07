@@ -33,12 +33,9 @@ R_String_Match(R_String a, R_String b)
 {
 	R_bool do_match = (a.size == b.size);
 
-	if (a.data != b.data)
+	for (R_umm i = 0; i < a.size && do_match; ++i)
 	{
-		for (R_umm i = 0; i < a.size && do_match; ++i)
-		{
-			do_match = (a.data[i] == b.data[i]);
-		}
+		do_match = (a.data[i] == b.data[i]);
 	}
 
 	return do_match;

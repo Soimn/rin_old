@@ -308,6 +308,7 @@ typedef struct R_Variable_Declaration
 	R_Expression* names;
 	R_Expression* type;
 	R_Expression* values;
+	R_bool is_uninitialized;
 } R_Variable_Declaration;
 
 typedef struct R_Constant_Declaration

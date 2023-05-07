@@ -41,6 +41,7 @@ typedef enum R_Token_Kind
 	R_Token_Arrow,
 	R_Token_Blank,
 	R_Token_Qmark,
+	R_Token_TripleMinus,
 
 	R_Token__FirstKeyword,
 	R_Token_If                          = R_Token__FirstKeyword,
@@ -275,6 +276,11 @@ R_Lexer_NextToken(R_Lexer* lexer)
 				{
 					token.kind = R_Token_Arrow;
 					lexer->current += 1;
+				}
+				else if (lexer->current[0] == '-' && lexer->current[1] == '-')
+				{
+					token.kind = R_Token_TripleMinus;
+					lexer->current += 2;
 				}
 			} break;
 
